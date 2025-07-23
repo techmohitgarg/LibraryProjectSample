@@ -90,7 +90,7 @@ version = project.findProperty("VERSION_NAME") as String
 mavenPublishing {
     publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
     signAllPublications()
-    
+
     pom {
         name.set(project.findProperty("POM_NAME") as String)
         description.set(project.findProperty("POM_DESCRIPTION") as String)
