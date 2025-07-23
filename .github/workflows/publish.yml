@@ -1,4 +1,4 @@
-name: Publish
+name: Publish Library
 on:
   release:
     types: [released, prereleased]
@@ -14,6 +14,7 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 21
+
       - name: Publish to MavenCentral
         run: ./gradlew publishToMavenCentral --no-configuration-cache
         env:

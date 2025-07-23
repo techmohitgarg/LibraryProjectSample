@@ -1,15 +1,11 @@
-import com.vanniktech.maven.publish.SonatypeHost
-import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import com.android.build.api.dsl.androidLibrary
 import java.util.Properties
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
-    alias(libs.plugins.android.library)
-    //alias(libs.plugins.android.kotlin.multiplatform.library)
-    //id("maven-publish")
-    //id("signing")
-    alias(libs.plugins.vanniktech.mavenPublish)
+    alias(libs.plugins.android.kotlin.multiplatform.library)
+    id("maven-publish")
+    id("signing")
 }
 
 // Load sensitive properties from local.properties
@@ -21,35 +17,15 @@ if (localPropertiesFile.exists()) {
 
 fun requireLocalProperty(name: String): String =
     localProperties.getProperty(name) ?: throw GradleException("Property '$name' is missing from local.properties")
+
 val xcfName = project.findProperty("POM_ARTIFACT_ID") as String
 
-android {
-    namespace = "com.mohit.sharedutil"
-    compileSdk = libs.versions.android.compileSdk.get().toInt()
-    defaultConfig {
+kotlin {
+    androidLibrary {
+        namespace = "com.mohit.sharedutil"
+        compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
     }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-    }
-}
-
-kotlin {
-    androidTarget {
-        publishLibraryVariants("release")
-        @OptIn(ExperimentalKotlinGradlePluginApi::class)
-        compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_11)
-        }
-    }
-    // For iOS targets, this is also where you should
-    // configure native binary output. For more information, see:
-    // https://kotlinlang.org/docs/multiplatform-build-native-binaries.html#build-xcframeworks
-
-    // A step-by-step guide on how to include this library in an XCode
-    // project can be found here:
-    // https://developer.android.com/kotlin/multiplatform/migrate
     listOf(
         iosX64(),
         iosArm64(),
@@ -87,67 +63,73 @@ kotlin {
 group = project.findProperty("GROUP_ID") as String
 version = project.findProperty("VERSION_NAME") as String
 
-mavenPublishing {
-    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
-    signAllPublications()
+publishing {
+    publications {
+        create<MavenPublication>("release") {
+            groupId = project.group.toString()
+            artifactId = xcfName
+            version = project.version.toString()
+            from(components["kotlin"])
 
-    pom {
-        name.set(project.findProperty("POM_NAME") as String)
-        description.set(project.findProperty("POM_DESCRIPTION") as String)
-        url.set(project.findProperty("POM_URL") as String)
+            pom {
+                name.set(project.findProperty("POM_NAME") as String)
+                description.set(project.findProperty("POM_DESCRIPTION") as String)
+                url.set(project.findProperty("POM_URL") as String)
 
-        licenses {
-            license {
-                name.set(project.findProperty("POM_LICENSE_NAME") as String)
-                url.set(project.findProperty("POM_LICENSE_URL") as String)
+                licenses {
+                    license {
+                        name.set(project.findProperty("POM_LICENSE_NAME") as String)
+                        url.set(project.findProperty("POM_LICENSE_URL") as String)
+                    }
+                }
+
+                developers {
+                    developer {
+                        id.set(project.findProperty("POM_DEVELOPER_ID") as String)
+                        name.set(project.findProperty("POM_DEVELOPER_NAME") as String)
+                        email.set(project.findProperty("POM_DEVELOPER_EMAIL") as String)
+                    }
+                }
+
+                scm {
+                    url.set(project.findProperty("POM_SCM_URL") as String)
+                    connection.set(project.findProperty("POM_SCM_CONNECTION") as String)
+                    developerConnection.set(project.findProperty("POM_SCM_DEV_CONNECTION") as String)
+                }
             }
-        }
-
-        developers {
-            developer {
-                id.set(project.findProperty("POM_DEVELOPER_ID") as String)
-                name.set(project.findProperty("POM_DEVELOPER_NAME") as String)
-                email.set(project.findProperty("POM_DEVELOPER_EMAIL") as String)
-            }
-        }
-
-        scm {
-            url.set(project.findProperty("POM_SCM_URL") as String)
-            connection.set(project.findProperty("POM_SCM_CONNECTION") as String)
-            developerConnection.set(project.findProperty("POM_SCM_DEV_CONNECTION") as String)
         }
     }
-}
-/*publishing {
+
     repositories {
         maven {
-            // Local test repo inside your build directory
-            //name = "localRelease"
+            name = "localTest"
             val releasesRepoUrl = layout.buildDirectory.dir("repos/releases")
             val snapshotsRepoUrl = layout.buildDirectory.dir("repos/snapshots")
             url = uri(if (version.toString().endsWith("SNAPSHOT")) snapshotsRepoUrl else releasesRepoUrl)
         }
-        // Maven Central/Sonatype OSSRH
+
         maven {
-            name = xcfName
+            //name = xcfName
             val isSnapshot = version.toString().endsWith("SNAPSHOT")
             url = uri(
-                if (!isSnapshot) "https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/"
-                else "https://central.sonatype.com/repository/maven-snapshots/"
+                if (isSnapshot)
+                    "https://s01.oss.sonatype.org/content/repositories/snapshots"
+                else
+                    "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2"
             )
             credentials {
-                username = project.findProperty("mavenCentralUserName") as String?
-                password = project.findProperty("mavenCentralPassword") as String?
+                username = requireLocalProperty("mavenCentralUserName")
+                password = requireLocalProperty("mavenCentralPassword")
             }
         }
     }
+}
 
-}*/
-/*signing {
+signing {
     useInMemoryPgpKeys(
-        project.findProperty("signing.keyId"),
-        file(project.findProperty("signing.secretKeyRingFile") as String).readText()
-        project.findProperty("signing.password")
+        requireLocalProperty("signing.keyId"),
+        file(requireLocalProperty("signing.secretKeyRingFile")).readText(),
+        requireLocalProperty("signing.password")
     )
     sign(publishing.publications["release"])
-}*/
+}
